@@ -1,0 +1,212 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build Release
+        run: swift build -c release
+
+      - name: Create App Bundle
+        run: |
+          mkdir -p "Mac Mic Mute.app/Contents/MacOS"
+          mkdir -p "Mac Mic Mute.app/Contents/Resources"
+          cp .build/release/MacMicMute "Mac Mic Mute.app/Contents/MacOS/"
+          
+          # Create Info.plist
+          cat > "Mac Mic Mute.app/Contents/Info.plist" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleDevelopmentRegion</key>
+              <string>en</string>
+              <key>CFBundleExecutable</key>
+              <string>MacMicMute</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.jcleigh.macmicmute</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>Mac Mic Mute</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${{ github.ref_name || inputs.version }}</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>12.0</string>
+              <key>LSUIElement</key>
+              <true/>
+              <key>NSMicrophoneUsageDescription</key>
+              <string>Mac Mic Mute needs access to control your microphones.</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Generate App Icon
+        run: |
+          cat > /tmp/create_icon.swift << 'ICONEOF'
+          import Cocoa
+
+          func createMicIcon(size: Int) -> NSImage {
+              let image = NSImage(size: NSSize(width: size, height: size))
+              image.lockFocus()
+              
+              let rect = NSRect(x: 0, y: 0, width: size, height: size)
+              let scale = CGFloat(size) / 512.0
+              
+              let bgPath = NSBezierPath(ovalIn: rect.insetBy(dx: 20 * scale, dy: 20 * scale))
+              let gradient = NSGradient(colors: [
+                  NSColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0),
+                  NSColor(red: 0.1, green: 0.4, blue: 0.9, alpha: 1.0)
+              ])!
+              gradient.draw(in: bgPath, angle: -90)
+              
+              let micWidth: CGFloat = 120 * scale
+              let micHeight: CGFloat = 200 * scale
+              let micX = (CGFloat(size) - micWidth) / 2
+              let micY = CGFloat(size) * 0.42
+              
+              let micRect = NSRect(x: micX, y: micY, width: micWidth, height: micHeight)
+              let micPath = NSBezierPath(roundedRect: micRect, xRadius: micWidth/2, yRadius: micWidth/2)
+              NSColor.white.setFill()
+              micPath.fill()
+              
+              NSColor(white: 0.85, alpha: 1.0).setStroke()
+              for i in 1...4 {
+                  let lineY = micY + micHeight * 0.3 + CGFloat(i) * 28 * scale
+                  let line = NSBezierPath()
+                  line.move(to: NSPoint(x: micX + 20 * scale, y: lineY))
+                  line.line(to: NSPoint(x: micX + micWidth - 20 * scale, y: lineY))
+                  line.lineWidth = 6 * scale
+                  line.stroke()
+              }
+              
+              let arcPath = NSBezierPath()
+              let arcCenterX = CGFloat(size) / 2
+              let arcCenterY = micY + 20 * scale
+              let arcRadius: CGFloat = 90 * scale
+              arcPath.appendArc(withCenter: NSPoint(x: arcCenterX, y: arcCenterY), 
+                                radius: arcRadius, 
+                                startAngle: 0, 
+                                endAngle: 180, 
+                                clockwise: true)
+              arcPath.lineWidth = 20 * scale
+              arcPath.lineCapStyle = .round
+              NSColor.white.setStroke()
+              arcPath.stroke()
+              
+              let stemPath = NSBezierPath()
+              stemPath.move(to: NSPoint(x: arcCenterX, y: arcCenterY - arcRadius))
+              stemPath.line(to: NSPoint(x: arcCenterX, y: CGFloat(size) * 0.18))
+              stemPath.lineWidth = 20 * scale
+              stemPath.stroke()
+              
+              let baseWidth: CGFloat = 140 * scale
+              let baseRect = NSRect(x: (CGFloat(size) - baseWidth) / 2, y: CGFloat(size) * 0.12, width: baseWidth, height: 30 * scale)
+              let basePath = NSBezierPath(roundedRect: baseRect, xRadius: 15 * scale, yRadius: 15 * scale)
+              basePath.fill()
+              
+              image.unlockFocus()
+              return image
+          }
+
+          func savePNG(_ image: NSImage, to path: String) {
+              guard let tiffData = image.tiffRepresentation,
+                    let bitmap = NSBitmapImageRep(data: tiffData),
+                    let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
+              try? pngData.write(to: URL(fileURLWithPath: path))
+          }
+
+          let basePath = "AppIcon.iconset"
+          try? FileManager.default.createDirectory(atPath: basePath, withIntermediateDirectories: true)
+
+          let sizes: [(Int, String)] = [
+              (16, "icon_16x16.png"), (32, "icon_16x16@2x.png"),
+              (32, "icon_32x32.png"), (64, "icon_32x32@2x.png"),
+              (128, "icon_128x128.png"), (256, "icon_128x128@2x.png"),
+              (256, "icon_256x256.png"), (512, "icon_256x256@2x.png"),
+              (512, "icon_512x512.png"), (1024, "icon_512x512@2x.png")
+          ]
+
+          for (size, name) in sizes {
+              savePNG(createMicIcon(size: size), to: "\(basePath)/\(name)")
+          }
+          print("Done")
+          ICONEOF
+          
+          swift /tmp/create_icon.swift
+          iconutil -c icns AppIcon.iconset -o "Mac Mic Mute.app/Contents/Resources/AppIcon.icns"
+          rm -rf AppIcon.iconset
+
+      - name: Create DMG
+        run: |
+          mkdir -p dmg_contents
+          cp -r "Mac Mic Mute.app" dmg_contents/
+          ln -s /Applications dmg_contents/Applications
+          hdiutil create -volname "Mac Mic Mute" -srcfolder dmg_contents -ov -format UDZO "Mac-Mic-Mute.dmg"
+
+      - name: Create ZIP
+        run: |
+          zip -r "Mac-Mic-Mute.zip" "Mac Mic Mute.app"
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${{ github.ref_name || inputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Mac Mic Mute ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Mac Mic Mute ${{ steps.version.outputs.VERSION }}
+            
+            A simple macOS menu bar app to mute/unmute all microphones system-wide.
+            
+            ### Features
+            - 🎤 Menu bar icon shows mute status
+            - ⌨️ Global hotkey: `⌘⇧M` (Cmd+Shift+M)
+            - 🔌 Works with all microphones (built-in, USB, webcam)
+            - 📞 System-level override for video calls
+            
+            ### Installation
+            1. Download `Mac-Mic-Mute.dmg`
+            2. Open the DMG and drag to Applications
+            3. Launch and grant Accessibility permissions when prompted
+            
+            ### Requirements
+            - macOS 12.0 (Monterey) or later
+          files: |
+            Mac-Mic-Mute.dmg
+            Mac-Mic-Mute.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
