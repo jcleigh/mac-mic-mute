@@ -170,6 +170,9 @@ jobs:
 
       - name: Create DMG
         run: |
+          # Ad-hoc sign the app to prevent "damaged" error
+          codesign --force --deep --sign - "Mac Mic Mute.app"
+          
           mkdir -p dmg_contents
           cp -r "Mac Mic Mute.app" dmg_contents/
           ln -s /Applications dmg_contents/Applications
@@ -202,7 +205,11 @@ jobs:
             ### Installation
             1. Download `Mac-Mic-Mute.dmg`
             2. Open the DMG and drag to Applications
-            3. Launch and grant Accessibility permissions when prompted
+            3. **If macOS says the app is damaged**, open Terminal and run:
+               ```
+               xattr -cr /Applications/Mac\ Mic\ Mute.app
+               ```
+            4. Launch and grant Accessibility permissions when prompted
             
             ### Requirements
             - macOS 12.0 (Monterey) or later
