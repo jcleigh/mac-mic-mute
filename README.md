@@ -2,6 +2,8 @@
 
 A simple macOS menu bar app that mutes/unmutes all microphones system-wide.
 
+<img width="412" height="268" alt="screenshot" src="https://github.com/user-attachments/assets/deea9884-e0b8-423c-954e-ac16b6e1a792" />
+
 ## Features
 
 - **Menu bar icon**: Shows mic status (🎤 active / 🎤🚫 muted)
