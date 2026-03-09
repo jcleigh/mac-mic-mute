@@ -13,7 +13,13 @@ A simple macOS menu bar app that mutes/unmutes all microphones system-wide.
 
 ## Usage
 
-### Run directly:
+### Preferred install (Homebrew):
+```bash
+brew tap jcleigh/mac-mic-mute
+brew install --cask jcleigh/mac-mic-mute/mac-mic-mute
+```
+
+### Run directly from source:
 ```bash
 swift build -c release
 .build/release/MacMicMute
@@ -24,7 +30,7 @@ swift build -c release
 open "Mac Mic Mute.app"
 ```
 
-### Install to Applications:
+### Install local app bundle to Applications:
 ```bash
 cp -r "Mac Mic Mute.app" /Applications/
 ```

@@ -202,7 +202,13 @@ jobs:
             - 🔌 Works with all microphones (built-in, USB, webcam)
             - 📞 System-level override for video calls
             
-            ### Installation
+            ### Installation (preferred: Homebrew)
+            ```bash
+            brew tap jcleigh/mac-mic-mute
+            brew install --cask jcleigh/mac-mic-mute/mac-mic-mute
+            ```
+
+            ### Alternative: Download from release assets
             1. Download `Mac-Mic-Mute.dmg`
             2. Open the DMG and drag to Applications
             3. **If macOS says the app is damaged**, open Terminal and run:
