@@ -205,8 +205,9 @@ jobs:
             ### Installation (preferred: Homebrew)
             ```bash
             brew tap jcleigh/mac-mic-mute
-            brew install --cask jcleigh/mac-mic-mute/mac-mic-mute
+            brew install --cask --no-quarantine jcleigh/mac-mic-mute/mac-mic-mute
             ```
+            `Mac Mic Mute` is currently distributed as an unsigned app, so `--no-quarantine` avoids the post-install `xattr -cr` workaround.
 
             ### Alternative: Download from release assets
             1. Download `Mac-Mic-Mute.dmg`
